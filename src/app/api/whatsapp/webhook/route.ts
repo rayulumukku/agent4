@@ -865,19 +865,48 @@ export async function POST(req: NextRequest) {
       commandLower.includes("all leads") || 
       commandLower.includes("hot leads")
     ) {
-      const { data: leads } = await supabase
+      let query = supabase
         .from("leads")
         .select("*")
-        .eq("agent_id", profile.id)
-        .order("created_at", { ascending: false });
+        .eq("agent_id", profile.id);
+
+      // Extract location filter (e.g. "in kokapet", "near banjara hills")
+      let locationFilter = "";
+      const locMatch = commandLower.match(/(?:in|near|at)\s+([a-z0-9\s]+?)(?:\s+(?:under|below|budget|around)|$)/);
+      if (locMatch && locMatch[1]) {
+        locationFilter = locMatch[1].trim();
+        query = query.ilike("location", `%${locationFilter}%`);
+      }
+
+      // Extract budget filter (e.g. "under 2cr", "budget 50l")
+      let budgetFilter = "";
+      const budgetMatch = commandLower.match(/(?:under|below|budget|around)\s+([0-9\.]+\s*(?:cr|l|c|k|crore|lakhs?))/);
+      if (budgetMatch && budgetMatch[1]) {
+        budgetFilter = budgetMatch[1].trim();
+        const num = budgetMatch[1].match(/[0-9\.]+/);
+        if (num) {
+          query = query.ilike("budget", `%${num[0]}%`);
+        }
+      }
+
+      const { data: leads } = await query.order("created_at", { ascending: false });
 
       if (!leads || leads.length === 0) {
-        const replyEmpty = "🤖 Bot: You don't have any leads registered yet. Add one by typing:\n\"aa Add lead Name phone 9999999999\"";
+        let replyEmpty = "🤖 Bot: You don't have any leads registered yet. Add one by typing:\n\"aa Add lead Name phone 9999999999\"";
+        if (locationFilter || budgetFilter) {
+          replyEmpty = `🤖 Bot: No leads found matching your filters: ${locationFilter ? `📍 Loc: ${locationFilter}` : ""} ${budgetFilter ? `💰 Budget: ${budgetFilter}` : ""}`;
+        }
         await sendOutboundReply(replyEmpty);
         return NextResponse.json({ status: "success", reply: replyEmpty });
       }
 
-      let replyMsg = `🤖 *Your CRM Leads List*\n\n`;
+      let replyMsg = `🤖 *Your CRM Leads List*\n`;
+      if (locationFilter || budgetFilter) {
+        replyMsg += `*(Filtered by: ${locationFilter ? locationFilter + " " : ""}${budgetFilter ? budgetFilter : ""})*\n\n`;
+      } else {
+        replyMsg += `\n`;
+      }
+      
       leads.forEach((l, idx) => {
         const emojiMap: Record<string, string> = {
           new: "🆕",
