@@ -572,7 +572,7 @@ export async function POST(req: NextRequest) {
           `5. _"aa Remind me to call [Name] time [date]"_ — set reminder\n` +
           `6. _"aa my reminders"_ — view pending reminders\n\n` +
           `🏢 *Inventory & Projects*\n` +
-          `7. _"aa Search 3BHK Kokapet"_ — search units\n` +
+          `7. _"aa inventory"_ — view available units\n` +
           `8. _"aa brochure [project]"_ — get brochure PDF\n` +
           `9. _"aa my projects"_ — projects you follow\n\n` +
           `📅 *Events*\n` +
@@ -580,7 +580,7 @@ export async function POST(req: NextRequest) {
           `11. _"aa webinars"_ — register for webinars\n` +
           `12. _"aa my events"_ — your accepted RSVPs\n\n` +
           `🏆 *Rewards*\n` +
-          `13. _"aa my points"_ — your XP balance & rank\n` +
+          `13. _"aa rewards"_ — your XP balance & rank\n` +
           `14. _"aa leaderboard"_ — top 10 agents\n` +
           `15. _"aa my referrals"_ — agents you referred\n\n` +
           `👤 *Profile*\n` +
@@ -1323,8 +1323,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ status: "success", reply: replyMsg.trim() });
     }
 
-    // 15. MY POINTS / XP BALANCE
-    if (commandLower === "my points" || commandLower === "points" || commandLower === "xp" || commandLower === "my xp") {
+    // 15. MY POINTS / XP BALANCE / REWARDS
+    if (commandLower === "my points" || commandLower === "points" || commandLower === "xp" || commandLower === "my xp" || commandLower === "rewards" || commandLower === "my rewards") {
       const { data: allAgents } = await supabase
         .from("profiles")
         .select("name, points")
