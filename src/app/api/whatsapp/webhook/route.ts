@@ -247,7 +247,7 @@ export async function POST(req: NextRequest) {
       commandText = "help";
     }
 
-    const commandLower = commandText.toLowerCase();
+    let commandLower = commandText.toLowerCase();
 
     // Check if the message is a pure "yes" or "no" reply
     const isYesOrNo = commandLower === "yes" || commandLower === "no";
@@ -606,6 +606,14 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
       if (lastMsg) {
         lastBotMessageStr = lastMsg.content;
+      }
+    }
+
+    // --- CONVERSATIONAL STATE MACHINE: INVENTORY FILTER ---
+    if (lastBotMessageStr.includes("Filter this list?") && lastBotMessageStr.includes("Reply with your preferred location")) {
+      // If the bot just asked them to filter, treat their next message as an inventory query
+      if (!commandLower.includes("inventory")) {
+        commandLower = "inventory " + commandLower;
       }
     }
 
@@ -1179,6 +1187,11 @@ export async function POST(req: NextRequest) {
 
         replyMsg += `${idx + 1}. ${statusEmoji} *${u.unit_name}* in *${projName}*\n📍 Loc: ${location} | Type: ${type.toUpperCase()}\n⚙️ Status: *${u.status.toUpperCase()}*\n${detailsStr}\n\n`;
       });
+
+      const isFiltered = commandLower.includes("plot") || commandLower.includes("villa") || commandLower.includes("apartment") || commandLower.includes("bhk") || commandLower.includes("kokapet") || commandLower.includes("gachibowli") || commandLower.includes("east") || commandLower.includes("north") || commandLower.includes("flat");
+      if (!isFiltered && filteredUnits.length > 0) {
+        replyMsg += `\n🤖 *Filter this list?*\nReply with your preferred location (e.g. Kokapet) or type (e.g. 3BHK) to filter.`;
+      }
 
       await sendOutboundReply(replyMsg.trim());
       return NextResponse.json({ status: "success", reply: replyMsg.trim() });
