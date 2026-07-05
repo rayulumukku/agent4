@@ -617,6 +617,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // --- CONVERSATIONAL STATE MACHINE: LEADS FILTER ---
+    if (lastBotMessageStr.includes("Filter these leads?") && lastBotMessageStr.includes("Reply with a location")) {
+      if (!commandLower.includes("my leads") && !commandLower.includes("show leads")) {
+        commandLower = "my leads " + commandLower;
+      }
+    }
+
     // --- SMART SEARCH: REMINDERS ---
     if (commandLower === "reminder" || commandLower === "reminders" || commandLower === "my reminders") {
       const { data: reminders } = await supabase.from("reminders").select("*").eq("agent_id", profile.id).eq("is_completed", false);
@@ -966,6 +973,12 @@ export async function POST(req: NextRequest) {
         }
         replyMsg += `\n   ⚡ Status: *${l.status.toUpperCase()}*\n\n`;
       });
+      
+      const isLeadsFiltered = locationFilter || budgetFilter;
+      if (!isLeadsFiltered && leads.length > 0) {
+        replyMsg += `\n🤖 *Filter these leads?*\nReply with a location (e.g. Kokapet) or budget (e.g. under 1cr) to filter.`;
+      }
+      
       await sendOutboundReply(replyMsg.trim());
       return NextResponse.json({ status: "success", reply: replyMsg.trim() });
     }
