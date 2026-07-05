@@ -872,7 +872,7 @@ export async function POST(req: NextRequest) {
 
       // Extract location filter (e.g. "in kokapet", "near banjara hills")
       let locationFilter = "";
-      const locMatch = commandLower.match(/(?:in|near|at)\s+([a-z0-9\s]+?)(?:\s+(?:under|below|budget|around)|$)/);
+      const locMatch = commandLower.match(/(?:in|near|at)\s+([a-z0-9\s]+?)(?:\s+(?:under|below|budget|around|above|over|less than|more than)|$)/);
       if (locMatch && locMatch[1]) {
         locationFilter = locMatch[1].trim();
         query = query.ilike("location", `%${locationFilter}%`);
@@ -880,16 +880,48 @@ export async function POST(req: NextRequest) {
 
       // Extract budget filter (e.g. "under 2cr", "budget 50l")
       let budgetFilter = "";
-      const budgetMatch = commandLower.match(/(?:under|below|budget|around)\s+([0-9\.]+\s*(?:cr|l|c|k|crore|lakhs?))/);
-      if (budgetMatch && budgetMatch[1]) {
-        budgetFilter = budgetMatch[1].trim();
-        const num = budgetMatch[1].match(/[0-9\.]+/);
-        if (num) {
-          query = query.ilike("budget", `%${num[0]}%`);
-        }
+      let budgetKeyword = "";
+      const budgetMatch = commandLower.match(/(under|below|budget|around|above|over|less than|more than)\s+([0-9\.]+\s*(?:cr|l|c|k|crore|lakhs?))/);
+      if (budgetMatch && budgetMatch[2]) {
+        budgetKeyword = budgetMatch[1].trim();
+        budgetFilter = budgetMatch[2].trim();
       }
 
-      const { data: leads } = await query.order("created_at", { ascending: false });
+      let { data: leads } = await query.order("created_at", { ascending: false });
+
+      if (leads && leads.length > 0) {
+        if (budgetFilter) {
+          const parseBudgetToLakhs = (budgetStr: string) => {
+            if (!budgetStr) return null;
+            const numMatch = budgetStr.match(/([0-9\.]+)/);
+            if (!numMatch) return null;
+            let num = parseFloat(numMatch[1]);
+            const lowerStr = budgetStr.toLowerCase();
+            if (lowerStr.includes('cr') || (lowerStr.includes('c') && !lowerStr.includes('loc'))) {
+              num = num * 100;
+            } else if (lowerStr.includes('k')) {
+              num = num / 100;
+            }
+            return num;
+          };
+
+          const userBudgetLakhs = parseBudgetToLakhs(budgetFilter);
+          if (userBudgetLakhs !== null) {
+            const isUnder = ["under", "below", "less than"].includes(budgetKeyword);
+            const isOver = ["above", "over", "more than"].includes(budgetKeyword);
+
+            leads = leads.filter(l => {
+              if (!l.budget) return false;
+              const leadBudgetLakhs = parseBudgetToLakhs(l.budget);
+              if (leadBudgetLakhs === null) return false;
+              
+              if (isUnder) return leadBudgetLakhs <= userBudgetLakhs;
+              if (isOver) return leadBudgetLakhs >= userBudgetLakhs;
+              return leadBudgetLakhs >= userBudgetLakhs * 0.8 && leadBudgetLakhs <= userBudgetLakhs * 1.2;
+            });
+          }
+        }
+      }
 
       if (!leads || leads.length === 0) {
         let replyEmpty = "🤖 Bot: You don't have any leads registered yet. Add one by typing:\n\"aa Add lead Name phone 9999999999\"";
