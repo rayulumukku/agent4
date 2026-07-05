@@ -592,9 +592,6 @@ export async function POST(req: NextRequest) {
       await sendOutboundReply(helpMsg);
       return NextResponse.json({ status: "success", reply: helpMsg });
     }
-
-    }
-
     // --- CONVERSATIONAL STATE MACHINE SETUP ---
     // Fetch the last outbound message sent by the bot to this phone number
     let lastBotMessageStr = "";
